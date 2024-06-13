@@ -1,0 +1,143 @@
+---
+title: "Exemple chapitre 1"
+author: "Aurélien Nicosia"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Package R
+
+```{r, echo=TRUE, eval=FALSE}
+library(tidyverse) # environnement tidyverse
+library(oce) # conversion UTM vers longitute/latitude
+library(circular) # statistiques directionnelles
+```
+
+
+## Exemple 1: Sentiers de bisons
+
+```{r example-1, echo=TRUE}
+bison <- read.delim("bison_complet4.txt")
+bison$id <- as.factor(bison$VAR3)
+L <- 13 # bison à afficher
+bison <- bison %>% group_by(id) %>%
+  mutate(nb_step = length(x)) %>% ungroup
+
+nb_step.unique <- unique(bison$nb_step)
+
+conversion <-  utm2lonlat(bison$x, bison$y, zone = 13)
+
+bison$latitude <-  conversion$latitude
+bison$longitude <- conversion$longitude
+
+bison.plot <-
+  bison %>%  filter(nb_step %in% nb_step.unique[order(nb_step.unique, decreasing = TRUE)[1:L]])
+
+p <-
+  ggplot(data = bison.plot, aes(x = longitude, y = latitude, fill = id)) +
+  geom_path(aes(col = id), alpha = 1) +
+  ylab("lattitude") +
+  xlab("longitude") +
+  ggtitle("Trajectoires des bisons") +
+  theme_bw()
+p
+
+```
+
+## Exemple 1.1: Sentier de bison le plus long
+```{r example-1.1, echo=TRUE}
+
+L <- 1 # bison à afficher
+
+bison.plot <-
+  bison %>%  filter(nb_step %in% nb_step.unique[order(nb_step.unique, decreasing = TRUE)[1:L]])
+
+p <-
+  ggplot(data = bison.plot, aes(x = longitude, y = latitude)) +
+geom_path(alpha = 1, arrow = arrow()) + xlab("lattitude") +
+  ylab("longitude") + ggtitle("Trajectoire la plus longue") + geom_point(
+    data = head(bison.plot, 1),
+    colour = "green",
+    size = 0.5
+  ) +
+  geom_point(data = tail(bison.plot, 1),
+             colour = "blue",
+             size = 0.5) +
+  theme_bw()
+p
+
+```
+
+## Exemple 1.2: Statistique descriptive du trajet le plus long
+
+```{r example-1.2, echo=TRUE, eval=FALSE}
+
+y <- numeric(length(bison.plot$x))
+for (i in (2:length(bison.plot$x))) {
+  y[i - 1] <-
+    atan2(bison.plot$y[i] - bison.plot$y[i - 1], bison.plot$x[i] - bison.plot$x[i -
+                                                                                  1])
+}
+y <- as.circular(y)
+
+plot(y,
+     stack = TRUE,
+     cex = 0.7,
+     tcl.text = 0.2)
+rose.diag(
+  y,
+  bins = 30,
+  col = "grey",
+  cex = 0.7,
+  prop = 1.8,
+  add = TRUE,
+  tcl.text = 0.2
+)
+arrows(
+  x0 = 0,
+  y0 = 0,
+  x1 = sum[8] * cos(sum[5]),
+  y1 = sum[8] * sin(sum[5]),
+  col = 'red',
+  lty = 1
+)
+
+summary(y)
+
+```
+
+## Exemple 1.3: Estimation von Mises sur le sentier le plus long
+
+```{r example-1.3, echo=TRUE, eval=FALSE}
+
+
+fit <- mle.vonmises(x = y)
+print(fit)
+A1(fit$kappa) / sum[8]
+
+plot(
+  y,
+  stack = TRUE,
+  cex = 0.7,
+  tcl.text = 0.2,
+  ylim = c(0, 2),
+  xlim = c(-1.5, 0.2)
+)
+ff <- function(x)
+  dvonmises(x, mu = fit$mu, kappa = fit$kappa)
+curve.circular(
+  ff,
+  join = TRUE,
+  add = TRUE,
+  xlim = c(-1.5, 0.2),
+  ylim = c(0, 2),
+  tcl.text = 0.2,
+  cex = 0.7,
+  col = "red"
+)
+
+```

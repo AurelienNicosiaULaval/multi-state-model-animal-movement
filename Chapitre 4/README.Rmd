@@ -1,0 +1,8 @@
+---
+title: "README"
+output: github_document
+---
+
+# Chapitre 4: exemples
+
+Une brève description de ce que fait votre projet.
