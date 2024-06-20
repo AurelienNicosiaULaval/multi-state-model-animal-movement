@@ -1,12 +1,13 @@
 ---
 title: "Exemple chapitre 1"
 author: "Aurélien Nicosia"
-date: "`r Sys.Date()`"
-output: html_document
+output: 
+  github_document:
+  keep_md: false
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 ```
 
 ## Package R
@@ -15,6 +16,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse) # environnement tidyverse
 library(oce) # conversion UTM vers longitute/latitude
 library(circular) # statistiques directionnelles
+library(survival) # modèle de régression logistique conditionnel
+library(momentuHMM) # HMM
+library(mixR) # Modèle de mélange
 ```
 
 
@@ -145,33 +149,153 @@ curve.circular(
 ```
 
 
-## Exemple 1.4
+## Exemple 1.4: Régression angulaire sur les sentiers de bisons
 
 ```{r}
-source("angular regression final.R")
-library(grid)
-library(gridExtra)
-n = length(y)
-data.bison <- data.frame(y = y, y.prec = c(0,y[-n]), y.prec2 = c(0, 0, y[-c(n,n-1)]), x.meadow = bison.plot$bearing2targetmead, z.meadow = bison.plot$dist2targetmead, x.gap = bison.plot$bearing2gap,
-z.gap = bison.plot$dist2gap)
-y = atan2(bison$y-lag(bison$y), bison$x-lag(bison$x))
-bison$y = y
-bison <-
-    bison %>%
+source("Scripts/angular regression final.R")
+
+bison.regression <-
+    bison.plot %>%
     group_by(id) %>%
     mutate(y.dir =atan2(y-lag(y,1), x-lag(x,1)),
-           y.prec = lag(y.dir, 1), y.prec2 = lag(y.dir, 2))
-data.all <- data.frame(y = bison$y.dir, y.prec = bison$y.prec, y.prec2 = bison$y.prec2, x.meadow = bison$bearing2targetmead, z.meadow = bison$dist2targetmead, x.gap = bison$bearing2gap,
-z.gap = bison$dist2gap)
-fit <- consensus(formula = y ~ y.prec +y.prec2+ x.meadow + x.meadow:log(z.meadow) +
-                   x.gap + x.gap:log(z.gap), data = data.all)
+           y.prec = lag(y.dir, 1), y.prec2 = lag(y.dir, 2)) %>%
+     rename(
+    x.meadow = bearing2targetmead,
+    z.meadow = dist2targetmead,
+    x.gap = bearing2gap,
+    z.gap = dist2gap
+    )
+
+fit <- consensus(formula = y.dir ~ y.prec + y.prec2 + x.meadow + x.meadow:log(z.meadow) +x.gap + x.gap:log(z.gap), data = bison.regression)
 print(fit)
-plot(fit)
+
+
 fit2 <- update(fit, ~ . - x.gap:log(z.gap))
 print(fit2)
-plot(fit2)
+
 
 ```
 
+## Exemple 2.1: Application du SSF sur la trajectoire du bison
 
+```{r}
+
+dat <- read_csv("data/1051complet.csv")
+
+# initialization parameter of the EM algorithm with a one
+# state model
+
+fit <- coxph(Surv(Times, Cote) ~ meadow + eau + strata(idstrate), data = dat, 
+  x = TRUE)
+fit
+```
+## Exemple 2.2: Application de l'équivalence des modèles sur la trajectoire du bison
+
+```{r}
+
+fit <- coxph(Surv(Times, Cote) ~ meadow + eau + cos.persis + dist.neg + dist.log + strata(idstrate), data = dat, 
+  x = TRUE)
+fit
+
+```
+
+## Exemple 3: Estimation d'un modèle caché sur la distance parcouru d'un caribou
+
+```{r}
+# load dataset
+jeu <-  read.csv("data/caribou.txt", sep="") 
+head(jeu)
+
+jeu$index = 1:dim(jeu)[1]
+
+ggplot(data = jeu, aes( x = index,y = d))+
+  geom_point()+
+  theme_bw()+
+  ylab("Distance de déplacement (km)")+
+  xlab("Observations")
+
+## Modèle de mélange ---
+
+library(mixR)
+mod = mixfit(jeu$d*100, family = 'gamma', ncomp = 2)
+mod
+
+
+## HMM
+
+# Création de positions dans l'espace 
+
+position<- matrix(NA, nrow = nrow(jeu)+1, ncol = 2)
+position[1,] <- c(0,0)
+
+for (i in 2:(nrow(jeu)+1)){
+  position[i,] <- position[i-1,] + jeu[i,]$d*c(cos(jeu[i,]$y),sin(jeu[i,]$y))
+}
+
+position <- as.data.frame(position)
+
+# merge dataset
+
+dat <- cbind(position[-1,]) 
+
+
+# prep data
+
+d <- prepData(dat ,coordNames=c("V1","V2") ,
+              type = "LL" )
+
+d = d %>% mutate( ID = "Caribou 1")
+
+
+## fit HMM
+nbStates <- 2
+stepDist <- "gamma" # step distribution
+
+
+# initial parameter for distance
+stepPar <- c(17,238,15,276) 
+
+
+
+
+
+m <- fitHMM(data=d,
+            nbStates=nbStates,
+            dist=list(step=stepDist),
+            Par0=list(step=stepPar),
+            stateNames = c( "Encampé","Exploratoire"))
+m
+
+```
+
+## Exemple 3.1 Décolde des états cachés sur la distance parcourues d'un caribou
+
+```{r}
+
+## graphique de distance en fonction de probabilité smoothé
+
+new_data = cbind(d,stateProbs(m))
+
+new_data$`Numéro d'observation` = 1:dim(new_data)[1]
+new_data$état = ifelse(new_data$Encampé>0.5, "État 1", "État 2")
+
+ggplot(data = new_data,aes( x = `Numéro d'observation`, y = Encampé))+
+  geom_point(aes(color = état))+
+  geom_line(alpha = 0.2)+
+  theme_bw()+
+  ylab("Probabilité d'être dans l'état 1")
+
+
+ggplot(data = new_data,aes( x = `Numéro d'observation`, y = step, color = Encampé))+
+  geom_point()+
+  theme_bw()+
+  scale_color_gradient(low = "darkblue", high = "darkred",
+                       breaks = c(0, 0.25, 0.5, 0.75, 1),
+                       labels = c("0", "0.25", "0.5", "0.75", "1")) +
+  ylab("Distance de déplacement")+
+  labs(color = "Probabilité d'être dans l'état 1")+
+  theme(legend.position = "bottom")
+
+
+```
 
