@@ -25,6 +25,8 @@ Pour reproduire les analyses, vous aurez besoin des packages R suivants :
 - `survival`
 - `circular`
 - `directionnal`
+- `momentuHMM`
+- `hmmSSF`
 
 ## Publications
 
