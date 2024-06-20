@@ -3,4 +3,4 @@ README
 
 # Chapitre 3: analyse de données du bison
 
-Une brève description de ce que fait votre projet.
+Le script `main.R` présente l'analyse du chapitre 3.

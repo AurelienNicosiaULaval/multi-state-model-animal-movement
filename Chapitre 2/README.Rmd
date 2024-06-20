@@ -5,4 +5,4 @@ output: github_document
 
 # Chapitre 2: analyse de données sur le caribou
 
-Le script `main.R` donne l'analyse de donnée sur le caribou du chapitre 2. Dans le dossier documentation
+Le script `main.R` donne l'analyse de donnée sur le caribou du chapitre 2.
