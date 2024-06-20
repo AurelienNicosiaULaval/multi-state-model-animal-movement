@@ -145,3 +145,33 @@ curve.circular(
 ```
 
 
+## Exemple 1.4
+
+```{r}
+source("angular regression final.R")
+library(grid)
+library(gridExtra)
+n = length(y)
+data.bison <- data.frame(y = y, y.prec = c(0,y[-n]), y.prec2 = c(0, 0, y[-c(n,n-1)]), x.meadow = bison.plot$bearing2targetmead, z.meadow = bison.plot$dist2targetmead, x.gap = bison.plot$bearing2gap,
+z.gap = bison.plot$dist2gap)
+y = atan2(bison$y-lag(bison$y), bison$x-lag(bison$x))
+bison$y = y
+bison <-
+    bison %>%
+    group_by(id) %>%
+    mutate(y.dir =atan2(y-lag(y,1), x-lag(x,1)),
+           y.prec = lag(y.dir, 1), y.prec2 = lag(y.dir, 2))
+data.all <- data.frame(y = bison$y.dir, y.prec = bison$y.prec, y.prec2 = bison$y.prec2, x.meadow = bison$bearing2targetmead, z.meadow = bison$dist2targetmead, x.gap = bison$bearing2gap,
+z.gap = bison$dist2gap)
+fit <- consensus(formula = y ~ y.prec +y.prec2+ x.meadow + x.meadow:log(z.meadow) +
+                   x.gap + x.gap:log(z.gap), data = data.all)
+print(fit)
+plot(fit)
+fit2 <- update(fit, ~ . - x.gap:log(z.gap))
+print(fit2)
+plot(fit2)
+
+```
+
+
+
