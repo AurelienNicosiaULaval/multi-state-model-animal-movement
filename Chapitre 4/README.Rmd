@@ -189,6 +189,24 @@ plotPR(m)
 
 plotStates(m) 
 
+df = data.frame(p = seq(0.01,0.5, 0.001), m_prob=NA)
+
+for (i in 1:dim(df)[1]){
+  df$m_prob[i] = mean(between(stateProbs(m)[,2],0.5-df$p[i], 0.5+df$p[i]))
+  }
+
+
+# Fonction pour formater les labels sous forme d'intervalle
+interval_labels <- function(p) {
+  sapply(p, function(x) paste0("[", format(0.5 - x, digits = 3), ", ", format(0.5 + x, digits = 3), "]"))
+}
+
+# Tracer le graphique avec les labels personnalisés pour l'axe x
+ggplot(data = df, aes(x = p, y = m_prob)) +
+  geom_line() +
+  theme_bw() +
+  scale_x_continuous(labels = interval_labels) +
+  labs(x = "Intervalle", y = "Proportion des probabilités d'être\n dans l'état 1 contenu dans l'intervalle")
 
 ```
 
